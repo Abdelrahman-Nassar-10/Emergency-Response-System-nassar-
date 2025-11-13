@@ -1,4 +1,3 @@
-// احذف تعريف socket هنا لأنه معرف في HTML
 let currentLocation = null;
 let view = null;
 let graphicsLayer = null;
@@ -14,6 +13,12 @@ require([
 
   const map = new WebMap({
     portalItem: { id: "55a428aade3544c3bbfc1598ec991a7e" },
+  });
+  map.when(() => {
+    map.layers.forEach((layer) => {
+      layer.visible = false;
+      console.log("🔒 Hidden layer:", layer.title);
+    });
   });
 
   view = new MapView({
@@ -53,7 +58,7 @@ require([
         addMarker(coords, [220, 53, 69]);
         Swal.fire(
           "✅ تم تحديد موقعك",
-          `دقة: ${pos.coords.accuracy.toFixed(0)} متر`,
+          `${pos.coords.longitude} , ${pos.coords.latitude}`,
           "success"
         );
       },

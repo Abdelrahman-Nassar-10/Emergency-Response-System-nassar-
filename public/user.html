@@ -18,7 +18,9 @@
     <script src="https://js.arcgis.com/4.30/"></script>
 
     <style>
-      html, body, #map {
+      html,
+      body,
+      #map {
         padding: 0;
         margin: 0;
         height: 100%;
@@ -31,13 +33,12 @@
         background: #fff;
         padding: 15px;
         border-radius: 12px;
-        box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
         width: 280px;
         z-index: 99;
       }
     </style>
 
-    <!-- ✅ كود الاتصال بالسيرفر -->
     <script>
       const socket = io("http://localhost:2511", {
         transports: ["websocket"],
@@ -55,33 +56,67 @@
       });
     </script>
   </head>
-
   <body>
     <div id="map"></div>
+    <div class="overlay"></div>
 
-    <div class="sidebar">
-      <header>🚨 إرسال بلاغ حادث</header>
+    <div class="status-badge">
+      <div class="status-indicator"></div>
+      <span>متصل بالخادم</span>
+    </div>
 
-      <form id="reportForm" class="form" onsubmit="return false;">
-        <div>
-          <label>📍 العنوان:</label>
-          <input type="text" id="address" placeholder="اضغط على الخريطة أو اختر موقعك" readonly />
-        </div>
+    <div class="report-panel">
+      <div class="panel-header">
+        <div class="decorative-circle circle-1"></div>
+        <div class="decorative-circle circle-2"></div>
+        <span class="header-icon">🚨</span>
+        <h1 class="header-title">نظام البلاغات الطارئة</h1>
+        <p class="header-subtitle">إرسال بلاغ حادث فوري</p>
+      </div>
 
-        <button id="getLocationBtn" type="button">📍 تحديد موقعي الحالي</button>
+      <div class="panel-body">
+        <form id="reportForm" onsubmit="return false;">
+          <div class="form-group">
+            <button id="getLocationBtn" type="button" class="btn btn-location">
+              <span>📍</span>
+              <span>تحديد موقعي الحالي</span>
+            </button>
+          </div>
 
-        <div>
-          <label>👥 عدد المصابين:</label>
-          <input type="number" id="injuries" placeholder="اكتب عدد المصابين" />
-        </div>
+          <div class="form-group">
+            <label class="form-label">
+              <span class="label-icon">👥</span>
+              <span>عدد المصابين</span>
+            </label>
+            <div class="input-wrapper">
+              <input
+                type="number"
+                id="injuries"
+                placeholder="أدخل عدد المصابين"
+                min="0"
+              />
+            </div>
+          </div>
 
-        <div>
-          <label>📝 الوصف:</label>
-          <textarea id="desc" placeholder="اكتب وصف الحادث"></textarea>
-        </div>
+          <div class="form-group">
+            <label class="form-label">
+              <span class="label-icon">📝</span>
+              <span>وصف الحادث</span>
+            </label>
+            <div class="input-wrapper">
+              <textarea
+                id="desc"
+                placeholder="اكتب تفاصيل الحادث هنا..."
+              ></textarea>
+            </div>
+          </div>
 
-        <button type="submit">📤 إرسال البلاغ</button>
-      </form>
+          <button type="submit" class="btn btn-submit">
+            <span>📤</span>
+            <span>إرسال البلاغ الآن</span>
+          </button>
+        </form>
+      </div>
     </div>
 
     <script src="./main.js"></script>
