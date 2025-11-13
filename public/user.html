@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>🚨 إرسال بلاغ حادث</title>
+
+    <link rel="stylesheet" href="./style.css" />
+
+    <!-- ✅ Socket.IO & SweetAlert -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- ✅ ArcGIS -->
+    <link
+      rel="stylesheet"
+      href="https://js.arcgis.com/4.30/esri/themes/light/main.css"
+    />
+    <script src="https://js.arcgis.com/4.30/"></script>
+
+    <style>
+      html, body, #map {
+        padding: 0;
+        margin: 0;
+        height: 100%;
+        width: 100%;
+      }
+      .sidebar {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #fff;
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        width: 280px;
+        z-index: 99;
+      }
+    </style>
+
+    <!-- ✅ كود الاتصال بالسيرفر -->
+    <script>
+      const socket = io("http://localhost:2511", {
+        transports: ["websocket"],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
+
+      socket.on("connect", () => {
+        console.log("🟢 Connected to server:", socket.id);
+      });
+
+      socket.on("connect_error", (err) => {
+        console.error("❌ Socket.IO error:", err.message);
+      });
+    </script>
+  </head>
+
+  <body>
+    <div id="map"></div>
+
+    <div class="sidebar">
+      <header>🚨 إرسال بلاغ حادث</header>
+
+      <form id="reportForm" class="form" onsubmit="return false;">
+        <div>
+          <label>📍 العنوان:</label>
+          <input type="text" id="address" placeholder="اضغط على الخريطة أو اختر موقعك" readonly />
+        </div>
+
+        <button id="getLocationBtn" type="button">📍 تحديد موقعي الحالي</button>
+
+        <div>
+          <label>👥 عدد المصابين:</label>
+          <input type="number" id="injuries" placeholder="اكتب عدد المصابين" />
+        </div>
+
+        <div>
+          <label>📝 الوصف:</label>
+          <textarea id="desc" placeholder="اكتب وصف الحادث"></textarea>
+        </div>
+
+        <button type="submit">📤 إرسال البلاغ</button>
+      </form>
+    </div>
+
+    <script src="./main.js"></script>
+  </body>
+</html>

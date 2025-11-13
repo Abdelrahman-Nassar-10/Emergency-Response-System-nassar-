@@ -1,0 +1,114 @@
+html, body, #map {
+    padding: 0;
+    margin: 0;
+    height: 100%;
+    width: 100%;
+  }
+
+  .sidebar {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #fff;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    width: 280px;
+    z-index: 99;
+  }
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: "Cairo", sans-serif;
+      }
+
+      #map {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 350px;
+        bottom: 0;
+        z-index: 1;
+      }
+
+      .sidebar {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 350px;
+        height: 100%;
+        background: #fff;
+        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
+        z-index: 2;
+        padding: 20px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+      }
+
+      header {
+        background: #d9534f;
+        color: #fff;
+        text-align: center;
+        padding: 1rem;
+        font-size: 1.3rem;
+        font-weight: bold;
+        border-radius: 8px;
+      }
+
+      .form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        padding-top: 10px;
+      }
+
+      label {
+        font-weight: 600;
+      }
+
+      input[type="number"],
+      textarea,
+      button {
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        font-size: 1rem;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      button {
+        background-color: #d9534f;
+        color: white;
+        cursor: pointer;
+        transition: 0.3s;
+      }
+
+      button:hover {
+        background-color: #c9302c;
+      }
+
+      @media (max-width: 768px) {
+        .sidebar {
+          position: relative;
+          width: 100%;
+          height: auto;
+          box-shadow: none;
+          padding: 15px;
+          order: 2;
+        }
+
+        #map {
+          position: relative;
+          width: 100%;
+          height: 400px;
+          order: 1;
+        }
+
+        body {
+          display: flex;
+          flex-direction: column;
+        }
+      }

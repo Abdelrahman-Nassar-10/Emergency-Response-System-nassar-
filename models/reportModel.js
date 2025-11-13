@@ -1,5 +1,6 @@
 const { Sequelize, Op, Model, DataTypes, STRING } = require("sequelize");
 const { sequelize } = require("../dataBase/dataBaseConnection.js");
+const User = require('./userModel')
 
 const Reports = sequelize.define(
   "Reports",
@@ -32,6 +33,7 @@ const Reports = sequelize.define(
     pictureURL: {
       type: DataTypes.STRING,
       allowNull: true,
+      defaultValue: "",
       validate: {
         isUrl: true,
       },
@@ -41,7 +43,7 @@ const Reports = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: "Users",
+        model: User,
         key: "id",
       },
       onDelete: "CASCADE",
