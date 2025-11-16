@@ -2,6 +2,7 @@ const express = require("express");
 const http = require("http");
 const app = express();
 const cors = require("cors");
+const authRoutes = require("./routes/userRouter.js");
 
 const admin = require("./routes/adminRoute.js");
 const hospitals= require("./routes/hospitalRoute.js");
@@ -33,6 +34,8 @@ app.use("/admin", admin);
 app.use("/ambulances", ambulances);
 app.use("/hospitals", hospitals);
 app.use("/api/reports", reportRoutes);
+app.use("/api/auth", authRoutes);
+
 
 app.get("/", (req, res) => res.send("hello from server !"));
 

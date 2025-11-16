@@ -1,0 +1,195 @@
+const fs = require("fs");
+const bcrypt = require("bcrypt");
+const runPythonCheck = require("../services/python.service.js");
+const User = require("../models/userModel.js");
+
+const safeDeleteFile = (filePath) => {
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+      console.log(`✓ File deleted: ${filePath}`);
+    } catch (err) {
+      console.error(`✗ Failed to delete file: ${filePath}`, err);
+    }
+  }
+};
+
+exports.register = async (req, res) => {
+  const file = req.file;
+  let filePath = file?.path;
+
+  try {
+    // ✅ استخدام fullName من الـ request
+    const { fullName, email, phone, password } = req.body;
+
+    // 1) التحقق من المدخلات الأساسية
+    if (!fullName || !email || !phone || !password || !file) {
+      safeDeleteFile(filePath);
+      return res.status(400).json({
+        message: "جميع الحقول مطلوبة",
+        missingFields: {
+          fullName: !fullName,
+          email: !email,
+          phone: !phone,
+          password: !password,
+          national_id_image: !file,
+        },
+      });
+    }
+
+    // 2) التحقق من طول كلمة المرور
+    if (password.length < 8) {
+      safeDeleteFile(filePath);
+      return res.status(400).json({
+        message: "كلمة المرور يجب أن تكون 8 أحرف على الأقل",
+      });
+    }
+
+    // 3) التحقق من صيغة البريد الإلكتروني
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      safeDeleteFile(filePath);
+      return res.status(400).json({
+        message: "صيغة البريد الإلكتروني غير صحيحة",
+      });
+    }
+
+    // 4) التحقق من رقم الهاتف (11 رقم)
+    const phoneRegex = /^[0-9]{11}$/;
+    if (!phoneRegex.test(phone)) {
+      safeDeleteFile(filePath);
+      return res.status(400).json({
+        message: "رقم الهاتف يجب أن يكون 11 رقم",
+      });
+    }
+
+    // 5) التحقق من وجود البريد مسبقاً
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      safeDeleteFile(filePath);
+      return res.status(400).json({
+        message: "هذا البريد الإلكتروني مستخدم بالفعل",
+      });
+    }
+
+    // 6) التحقق من وجود رقم الهاتف مسبقاً
+    const existingPhone = await User.findOne({ where: { phone } });
+    if (existingPhone) {
+      safeDeleteFile(filePath);
+      return res.status(400).json({
+        message: "رقم الهاتف مستخدم بالفعل",
+      });
+    }
+
+    // 7) التحقق من نوع الملف
+    const allowedMimeTypes = ["image/jpeg", "image/jpg", "image/png"];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      safeDeleteFile(filePath);
+      return res.status(400).json({
+        message: "يرجى رفع صورة بصيغة JPG أو PNG فقط",
+      });
+    }
+
+    // 8) التحقق من وجود الملف
+    if (!fs.existsSync(filePath)) {
+      return res.status(400).json({
+        message: "فشل في رفع الصورة. حاول مرة أخرى",
+      });
+    }
+
+    console.log(`📸 Processing ID image: ${filePath}`);
+
+    // 9) تشغيل نموذج الذكاء الاصطناعي للتحقق من البطاقة
+    let pythonResult;
+    try {
+      pythonResult = await runPythonCheck(filePath);
+      console.log("🤖 AI Result:", pythonResult);
+    } catch (pyErr) {
+      console.error("❌ Python/AI Error:", pyErr.message || pyErr);
+      safeDeleteFile(filePath);
+      return res.status(500).json({
+        message: "فشل التحقق من البطاقة. تأكد من وضوح الصورة وحاول مرة أخرى",
+        technicalError:
+          process.env.NODE_ENV === "development" ? pyErr.message : undefined,
+      });
+    }
+
+    // 10) حذف الملف بعد المعالجة
+    safeDeleteFile(filePath);
+
+    // 11) التحقق من نتيجة الذكاء الاصطناعي
+    if (!pythonResult) {
+      return res.status(500).json({
+        message: "لم نتمكن من الحصول على نتيجة التحقق",
+      });
+    }
+
+    if (pythonResult.error) {
+      return res.status(400).json({
+        message: pythonResult.error,
+      });
+    }
+
+    if (!pythonResult.valid) {
+      return res.status(400).json({
+        message: "البطاقة غير صالحة أو غير واضحة. يرجى رفع صورة واضحة للبطاقة",
+        similarity: pythonResult.similarity
+          ? (pythonResult.similarity * 100).toFixed(2) + "%"
+          : "0%",
+        details: "نسبة التطابق أقل من الحد المطلوب (80%)",
+      });
+    }
+
+    // 12) تشفير كلمة المرور
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 13) ✅ حفظ المستخدم - استخدام name بدلاً من fullName
+    const newUser = await User.create({
+      name: fullName, // ✅ تحويل fullName إلى name
+      email,
+      phone,
+      password: hashedPassword,
+      // إذا كان Model يحتوي على حقل idSimilarity
+      // idSimilarity: pythonResult.similarity || 0,
+    });
+
+    console.log(`✅ User registered: ${newUser.email}`);
+
+    // 14) إرجاع النتيجة
+    return res.status(201).json({
+      success: true,
+      message: "تم التحقق من البطاقة وإنشاء الحساب بنجاح",
+      similarity: (pythonResult.similarity * 100).toFixed(2) + "%",
+      userId: newUser.id,
+      user: {
+        name: newUser.name,
+        email: newUser.email,
+        phone: newUser.phone,
+      },
+    });
+  } catch (err) {
+    console.error("❌ REGISTER ERROR:", err);
+
+    // حذف الملف في حالة حدوث أي خطأ
+    safeDeleteFile(filePath);
+
+    // التعامل مع أخطاء قاعدة البيانات
+    if (err.name === "SequelizeUniqueConstraintError") {
+      return res.status(400).json({
+        message: "البريد الإلكتروني أو رقم الهاتف مستخدم بالفعل",
+      });
+    }
+
+    if (err.name === "SequelizeValidationError") {
+      return res.status(400).json({
+        message: err.errors[0]?.message || "خطأ في التحقق من البيانات",
+        errors: err.errors.map((e) => e.message),
+      });
+    }
+
+    return res.status(500).json({
+      message: "حدث خطأ في الخادم. يرجى المحاولة لاحقاً",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
+  }
+};

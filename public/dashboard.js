@@ -577,7 +577,6 @@ require([
       ).toFixed(1)} دقيقة</p>
     </div>
   `,
-        draggable: true,
 
         icon: "success",
         confirmButtonText: "حسناً",
