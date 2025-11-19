@@ -16,6 +16,24 @@
       href="https://js.arcgis.com/4.30/esri/themes/light/main.css"
     />
     <script src="https://js.arcgis.com/4.30/"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    Swal.fire({
+      icon: "warning",
+      title: "🚫 ممنوع",
+      text: "يجب تسجيل الدخول للوصول لهذه الصفحة",
+      confirmButtonText: "تسجيل الدخول",
+    }).then(() => {
+      window.location.href = "login.html";
+    });
+    return; // نوقف تنفيذ أي كود آخر
+  }
+
+  initMap();
+});
+</script>
 
     <style>
       html,

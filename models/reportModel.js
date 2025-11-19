@@ -1,22 +1,23 @@
-const { Sequelize, Op, Model, DataTypes, STRING } = require("sequelize");
+const { Sequelize, Op, Model, DataTypes } = require("sequelize");
 const { sequelize } = require("../dataBase/dataBaseConnection.js");
-const User = require('./userModel')
+const User = require("./userModel");
 
 const Reports = sequelize.define(
   "Reports",
   {
-    // الكائن الأول: تعريف الأعمدة (Attributes)
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
     },
-    // تم إضافة عمود geom المفقود
+
+    // GEOM (PostGIS)
     geom: {
       type: DataTypes.GEOMETRY("POINT", 4326),
       allowNull: false,
       comment: "الموقع الجغرافي للحادث باستخدام PostGIS.",
     },
+
     numberOfAccidents: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -25,23 +26,32 @@ const Reports = sequelize.define(
       },
       comment: "عدد الحوادث أو الإصابات المسجلة.",
     },
+
     description: {
       type: DataTypes.TEXT,
       allowNull: true,
       comment: "وصف تفصيلي للحادث (اختياري).",
     },
+
+    // ✔ تم إصلاح المشكلة هنا
     pictureURL: {
       type: DataTypes.STRING,
-      allowNull: true,
-      defaultValue: "",
+      allowNull: true, // مهم جدًا
       validate: {
-        isUrl: true,
+        isUrl: true, // بيتأكد فقط لو في URL مبعوت
       },
       comment: "رابط الصورة المرفوعة (اختياري).",
     },
+    reportTime: {
+      type: DataTypes.DATE, // يخزن التاريخ والوقت معًا
+      allowNull: false,
+      defaultValue: DataTypes.NOW, // القيمة الافتراضية هي الوقت الحالي
+      comment: "تاريخ ووقت إنشاء البلاغ",
+    },
+
     userId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: User,
         key: "id",
@@ -51,10 +61,8 @@ const Reports = sequelize.define(
     },
   },
   {
-    // الكائن الثاني: الخيارات (Options)
     tableName: "report",
     timestamps: true,
-    // تم نقل indexes إلى هنا (المكان الصحيح)
     indexes: [
       {
         name: "spatial_geom_idx",

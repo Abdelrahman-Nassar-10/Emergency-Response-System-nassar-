@@ -2,7 +2,11 @@ const fs = require("fs");
 const bcrypt = require("bcrypt");
 const runPythonCheck = require("../services/python.service.js");
 const User = require("../models/userModel.js");
-
+const cloudinary = require("../utils/cloudinaryConfig.js");
+require("dotenv").config(); 
+const signToken = require("../middlewares/signToken.js");
+const { log } = require("console");
+const { where } = require("sequelize");
 // 🎯 قراءة الحد الأدنى من .env أو استخدام 0.6 كقيمة افتراضية
 const SIMILARITY_THRESHOLD =
   parseFloat(process.env.AI_SIMILARITY_THRESHOLD) || 0.6;
@@ -24,19 +28,18 @@ exports.register = async (req, res) => {
 
   try {
     const { fullName, email, phone, password } = req.body;
+    const uploadedImage = await cloudinary.uploader.upload(req.file.path, {
+      folder: "cards",
+    });
+
+    const imgUrl = uploadedImage.secure_url;
 
     // 1) التحقق من المدخلات الأساسية
-    if (!fullName || !email || !phone || !password || !file) {
+    if (!fullName || !email || !phone || !password) {
       safeDeleteFile(filePath);
       return res.status(400).json({
-        message: "جميع الحقول مطلوبة",
-        missingFields: {
-          fullName: !fullName,
-          email: !email,
-          phone: !phone,
-          password: !password,
-          national_id_image: !file,
-        },
+        message:
+          "جميع الحقول مطلوبة: الاسم الكامل، البريد الإلكتروني، رقم الهاتف، وكلمة المرور",
       });
     }
 
@@ -84,7 +87,14 @@ exports.register = async (req, res) => {
       });
     }
 
-    // 7) التحقق من نوع الملف
+    // 7) التحقق من وجود الملف
+    if (!file) {
+      return res.status(400).json({
+        message: "صورة البطاقة مطلوبة",
+      });
+    }
+
+    // 8) التحقق من نوع الملف
     const allowedMimeTypes = ["image/jpeg", "image/jpg", "image/png"];
     if (!allowedMimeTypes.includes(file.mimetype)) {
       safeDeleteFile(filePath);
@@ -93,7 +103,7 @@ exports.register = async (req, res) => {
       });
     }
 
-    // 8) التحقق من وجود الملف
+    // 9) التحقق من وجود الملف في النظام
     if (!fs.existsSync(filePath)) {
       return res.status(400).json({
         message: "فشل في رفع الصورة. حاول مرة أخرى",
@@ -102,7 +112,7 @@ exports.register = async (req, res) => {
 
     console.log(`📸 Processing ID image: ${filePath}`);
 
-    // 9) تشغيل نموذج الذكاء الاصطناعي مع threshold مخصص
+    // 10) تشغيل نموذج الذكاء الاصطناعي مع threshold مخصص
     let pythonResult;
     try {
       pythonResult = await runPythonCheck(filePath, SIMILARITY_THRESHOLD);
@@ -117,10 +127,10 @@ exports.register = async (req, res) => {
       });
     }
 
-    // 10) حذف الملف بعد المعالجة
+    // 11) حذف الملف بعد المعالجة
     safeDeleteFile(filePath);
 
-    // 11) التحقق من نتيجة الذكاء الاصطناعي
+    // 12) التحقق من نتيجة الذكاء الاصطناعي
     if (!pythonResult) {
       return res.status(500).json({
         message: "لم نتمكن من الحصول على نتيجة التحقق",
@@ -145,18 +155,18 @@ exports.register = async (req, res) => {
       });
     }
 
-    // 12) تشفير كلمة المرور
+    // 13) تشفير كلمة المرور
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 13) حفظ المستخدم في قاعدة البيانات
+    // 14) حفظ المستخدم في قاعدة البيانات
     const newUser = await User.create({
       fullName,
       email,
       phone,
       password: hashedPassword,
-      idSimilarity: pythonResult.similarity || 0,
+      imageUrl: imgUrl,
     });
-
+    if (imgUrl) console.log("uploaded", imgUrl);
     console.log("✅ User created successfully:", newUser.id);
 
     // ✅ إرجاع Response ناجح
@@ -193,6 +203,48 @@ exports.register = async (req, res) => {
     return res.status(500).json({
       message: "حدث خطأ في الخادم. يرجى المحاولة لاحقاً",
       error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
+  }
+};
+
+exports.logIn = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const existsUser = await User.findOne({ where: { email } });
+    if(!existsUser) return res.status(400).json({
+      message: "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+    })
+    const isValid = await bcrypt.compare(
+      password,
+      existsUser.dataValues.password
+    );
+    if (!isValid)
+      return res.status(400).json({
+        message: "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+      });
+    if (isValid && existsUser.dataValues.email) {
+      // log(existsUser.dataValues);
+    }
+   const userData =existsUser.dataValues;
+    const token =await signToken({
+      id: userData.id,
+      email: userData.email,
+      fullName: userData.fullName,
+      imageUrl: userData.imageUrl,
+    });
+    // res.cookie("token", token, {
+    //   httpOnly: true,
+    //   expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    // });
+    return res.json({
+      status: "success",
+      message: "user logged in successfully",
+      token
+    });
+  } catch (err) {
+    log(err);
+    return res.status(500).json({
+      message: "حدث خطأ في الخادم. يرجى المحاولة لاحقاً",
     });
   }
 };

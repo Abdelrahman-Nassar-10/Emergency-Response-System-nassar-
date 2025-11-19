@@ -22,6 +22,10 @@ router.post(
   "/register",
   upload.single("national_id_image"),
   authService.register
-);
+)
+router.post(
+  "/login",
+  authService.logIn
+)
 
 module.exports = router;

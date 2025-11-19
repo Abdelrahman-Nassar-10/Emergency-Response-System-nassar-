@@ -1,118 +1,14 @@
 let socket;
 let accidents = [];
+window.currentView = null; // Global reference for the map view
 
-// ===== DATA STATIC =====
-const hospitalGeoJSON = {
-  type: "FeatureCollection",
-  features: [
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.2243, 30.0626] },
-      properties: { name_ar: "مستشفى السلام", beds: 8 },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.2365, 30.0444] },
-      properties: { name_ar: "مستشفى النيل", beds: 12 },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.2181, 30.0511] },
-      properties: { name_ar: "مستشفى الرحمة", beds: 15 },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.2402, 30.0567] },
-      properties: { name_ar: "مستشفى الشفاء", beds: 10 },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.2105, 30.0602] },
-      properties: { name_ar: "مستشفى الأمل", beds: 6 },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.2301, 30.0489] },
-      properties: { name_ar: "مستشفى دار السلام", beds: 11 },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.2222, 30.0555] },
-      properties: { name_ar: "مستشفى التحرير", beds: 9 },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.2501, 30.0588] },
-      properties: { name_ar: "مستشفى القاهرة الجديدة", beds: 14 },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.215, 30.065] },
-      properties: { name_ar: "مستشفى فيصل", beds: 7 },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.245, 30.04] },
-      properties: { name_ar: "مستشفى أكتوبر", beds: 13 },
-    },
-  ],
-};
+// Global arrays to hold the features retrieved from the "Feature Layers"
+let allHospitalFeatures = [];
+let allAmbulanceFeatures = [];
 
-const ambulanceGeoJSON = {
-  type: "FeatureCollection",
-  features: [
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.221, 30.06] },
-      properties: { name_ar: "اسعاف الزمالك" },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.21, 30.05] },
-      properties: { name_ar: "اسعاف المهندسين" },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.23, 30.055] },
-      properties: { name_ar: "اسعاف وسط البلد" },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.25, 30.062] },
-      properties: { name_ar: "اسعاف مصر الجديدة" },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.28, 30.01] },
-      properties: { name_ar: "اسعاف المعادي" },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.26, 30.07] },
-      properties: { name_ar: "اسعاف مدينة نصر" },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.32, 30.07] },
-      properties: { name_ar: "اسعاف التجمع الخامس" },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.4, 30.15] },
-      properties: { name_ar: "اسعاف العبور" },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.3, 30.08] },
-      properties: { name_ar: "اسعاف الرحاب" },
-    },
-    {
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [31.2, 30.02] },
-      properties: { name_ar: "اسعاف أكتوبر" },
-    },
-  ],
-};
+// Global Chart Instances
+let bedsChartInstance = null;
+let severityChartInstance = null;
 
 // ===== Notification Sound =====
 function playNotification() {
@@ -176,11 +72,11 @@ try {
       renderAccidents();
       playNotification();
 
-      // ✅ تحديث عداد البلاغات
+      // ✅ Update Counter
       const totalEl = document.getElementById("totalReports");
       if (totalEl) {
         const currentCount = parseInt(totalEl.textContent) || 0;
-        totalEl.textContent = currentCount + 1;
+        totalEl.textContent = (currentCount + 1).toLocaleString("ar-EG");
       }
     }
   });
@@ -203,14 +99,33 @@ function deleteAccident(index) {
     if (result.isConfirmed) {
       accidents.splice(index, 1);
       renderAccidents();
-      if (window.currentView) window.currentView.graphics.removeAll();
+
+      // Update Counter
+      const totalEl = document.getElementById("totalReports");
+      if (totalEl) {
+        const currentCount = parseInt(totalEl.textContent) || 0;
+        totalEl.textContent = (currentCount - 1).toLocaleString("ar-EG");
+      }
+
+      // Clear Route if specific accident was deleted (Optional logic)
+      // window.currentView.graphics.removeAll();
     }
   });
 }
+window.deleteAccident = deleteAccident;
 
 // ===== RENDER ACCIDENTS LIST =====
 function renderAccidents() {
   const container = document.getElementById("accidentsList");
+  const totalEl = document.getElementById("totalReports");
+
+  if (totalEl) {
+    totalEl.textContent = accidents.length.toLocaleString("ar-EG");
+  }
+
+  // Update Severity Chart whenever list changes
+  updateSeverityChart();
+
   if (!accidents || accidents.length === 0) {
     container.innerHTML = `
       <div class="no-accidents">
@@ -221,12 +136,18 @@ function renderAccidents() {
   }
   container.innerHTML = accidents
     .map((accident, index) => {
-      const time = new Date(accident.timestamp).toLocaleString("ar-EG");
+      const reportTime = new Date(
+        accident.reportTime || accident.timestamp
+      ).toLocaleDateString("ar-EG");
+      const coordsLat = accident.geom.coordinates[1].toFixed(4);
+      const coordsLon = accident.geom.coordinates[0].toFixed(4);
+      const reportId = accident.id || index + 1;
+
       return `
         <div class="accident-card">
           <div class="accident-header">
-            <span class="accident-id">بلاغ #${accident.id || index + 1}</span>
-            <span class="accident-time">${time}</span>
+            <span class="accident-id">بلاغ #${reportId}</span>
+            <span class="accident-time">${reportTime}</span>
           </div>
           <div class="accident-info">
             <div class="info-row">
@@ -235,9 +156,7 @@ function renderAccidents() {
             </div>
             <div class="info-row">
               <span class="info-label">📍 الموقع:</span>
-              <span class="info-value">${accident.geom.coordinates[1].toFixed(
-                4
-              )}, ${accident.geom.coordinates[0].toFixed(4)}</span>
+              <span class="info-value" style="direction: ltr;">${coordsLat}, ${coordsLon}</span>
             </div>
           </div>
           <div class="accident-actions">
@@ -253,103 +172,274 @@ function renderAccidents() {
     })
     .join("");
 }
+window.renderAccidents = renderAccidents;
 
-// ===== INITIALIZE MAP & SHOW ACCIDENT =====
+// ===== CHARTS LOGIC =====
+
+function initCharts() {
+  const ctx1 = document.getElementById("hospitalBedsChart").getContext("2d");
+  const ctx2 = document
+    .getElementById("accidentSeverityChart")
+    .getContext("2d");
+
+  // Chart 1: Top Hospitals (Bar)
+  bedsChartInstance = new Chart(ctx1, {
+    type: "bar",
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: "عدد الأسرة المتاحة",
+          data: [],
+          backgroundColor: "rgba(33, 150, 243, 0.7)",
+          borderColor: "rgba(33, 150, 243, 1)",
+          borderWidth: 1,
+          borderRadius: 5,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        title: {
+          display: true,
+          text: "🏥 أكثر المستشفيات استيعاباً (أسرة)",
+          font: { family: "Cairo" },
+        },
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { font: { family: "Cairo" } } },
+        x: { ticks: { font: { family: "Cairo", size: 10 } } },
+      },
+    },
+  });
+
+  // Chart 2: Severity (Doughnut)
+  severityChartInstance = new Chart(ctx2, {
+    type: "doughnut",
+    data: {
+      labels: [
+        "إصابات طفيفة (1-2)",
+        "إصابات متوسطة (3-5)",
+        "إصابات خطيرة (>5)",
+      ],
+      datasets: [
+        {
+          data: [0, 0, 0],
+          backgroundColor: [
+            "rgba(76, 175, 80, 0.7)", // Green
+            "rgba(255, 152, 0, 0.7)", // Orange
+            "rgba(244, 67, 54, 0.7)", // Red
+          ],
+          borderWidth: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "right",
+          labels: { font: { family: "Cairo", size: 10 }, boxWidth: 10 },
+        },
+        title: {
+          display: true,
+          text: "📊 توزيع شدة الحوادث",
+          font: { family: "Cairo" },
+        },
+      },
+    },
+  });
+}
+
+function updateSeverityChart() {
+  if (!severityChartInstance) return;
+  let low = 0; // 1-2 injuries
+  let medium = 0; // 3-5 injuries
+  let high = 0; // >5 injuries
+
+  accidents.forEach((acc) => {
+    const count = acc.numberOfAccidents || 0;
+    if (count <= 2) low++;
+    else if (count <= 5) medium++;
+    else high++;
+  });
+
+  severityChartInstance.data.datasets[0].data = [low, medium, high];
+  severityChartInstance.update();
+}
+
+// Call initialization on load
+document.addEventListener("DOMContentLoaded", () => {
+  initCharts();
+  renderAccidents();
+});
+
+// ===== INITIALIZE MAP & ARCGIS LOGIC =====
 require([
+  "esri/config",
   "esri/WebMap",
+  "esri/Map",
   "esri/views/MapView",
   "esri/Graphic",
   "esri/geometry/Point",
   "esri/layers/GraphicsLayer",
+  "esri/layers/FeatureLayer",
   "esri/rest/closestFacility",
   "esri/rest/support/ClosestFacilityParameters",
   "esri/rest/support/FeatureSet",
 ], function (
+  esriConfig,
   WebMap,
+  Map,
   MapView,
   Graphic,
   Point,
   GraphicsLayer,
+  FeatureLayer,
   closestFacility,
   ClosestFacilityParameters,
   FeatureSet
 ) {
-  const map = new WebMap({
-    portalItem: { id: "55a428aade3544c3bbfc1598ec991a7e" },
-  });
-
-  map.when(() => {
-    map.layers.forEach((layer) => {
-      layer.visible = false;
-      console.log("🔒 Hidden layer:", layer.title);
-    });
-  });
-
-  const view = new MapView({
-    container: "map",
-    map,
-    center: [31.22, 30.05],
-    zoom: 10,
-  });
-  window.currentView = view;
-
-  const hospitalsLayer = new GraphicsLayer({ title: "المستشفيات" });
-  const ambulancesLayer = new GraphicsLayer({ title: "محطات الإسعاف" });
-  const routesLayer = new GraphicsLayer({ title: "المسارات" });
-  map.addMany([hospitalsLayer, ambulancesLayer, routesLayer]);
-
-  // عرض المستشفيات مع رمز مستشفى حقيقي
-  hospitalGeoJSON.features.forEach((feature) => {
-    const graphic = new Graphic({
-      geometry: new Point({
-        longitude: feature.geometry.coordinates[0],
-        latitude: feature.geometry.coordinates[1],
-      }),
-      symbol: {
-        type: "picture-marker",
-        url: "data:image/svg+xml,%3Csvg xmlns='https://www.svgrepo.com/svg/530550/ambulance' viewBox='0 0 24 24' fill='%232196F3'%3E%3Cpath d='M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 18h-4v-6h4v6zm5-8h-4v4h-4v-4H5V5h14v8z'/%3E%3C/svg%3E",
-        width: "32px",
-        height: "32px",
-      },
-      attributes: feature.properties,
-      popupTemplate: {
-        title: "{name_ar}",
-        content: "🏥 مستشفى | الأسرة المتاحة: {beds}",
-      },
-    });
-    hospitalsLayer.add(graphic);
-  });
-
-  // عرض محطات الإسعاف مع رمز إسعاف حقيقي
-  ambulanceGeoJSON.features.forEach((feature) => {
-    const graphic = new Graphic({
-      geometry: new Point({
-        longitude: feature.geometry.coordinates[0],
-        latitude: feature.geometry.coordinates[1],
-      }),
-      symbol: {
-        type: "picture-marker",
-        url: "data:image/svg+xml,%3Csvg xmlns='https://www.svgrepo.com/svg/475527/hospital' viewBox='0 0 24 24' fill='%23FF9800'%3E%3Cpath d='M18 12h-1V4c0-.5-.5-1-1-1H8c-.5 0-1 .5-1 1v8H6c-2.76 0-5 2.24-5 5s2.24 5 5 5h12c2.76 0 5-2.24 5-5s-2.24-5-5-5zm-9-7h6v7h-6V5zm9 12H6c-1.65 0-3-1.35-3-3s1.35-3 3-3h12c1.65 0 3 1.35 3 3s-1.35 3-3 3z'/%3E%3C/svg%3E",
-        width: "32px",
-        height: "32px",
-      },
-      attributes: feature.properties,
-      popupTemplate: {
-        title: "{name_ar}",
-        content: "🚑 محطة إسعاف",
-      },
-    });
-    ambulancesLayer.add(graphic);
-  });
+  // --- 1. SETUP URLS & LAYERS ---
+  const hospitalLayerUrl =
+    "https://services3.arcgis.com/UDCw00RKDRKPqASe/arcgis/rest/services/Cairo_Emergency_WFL1/FeatureServer/0";
+  const ambulanceLayerUrl =
+    "https://services3.arcgis.com/UDCw00RKDRKPqASe/arcgis/rest/services/Cairo_Emergency_WFL1/FeatureServer/1";
 
   const closestFacilityUrl =
     "https://route.arcgis.com/arcgis/rest/services/World/ClosestFacility/NAServer/ClosestFacility_World";
 
+  // --- 2. MAP INITIALIZATION ---
+  const map = new Map({
+    basemap: "streets-vector",
+  });
+
+  const view = new MapView({
+    container: "map",
+    map: map,
+    center: [31.22, 30.05], // Centered on Cairo
+    zoom: 10,
+  });
+  window.currentView = view;
+
+  // ✅ LAYERS SETUP
+  // Layer 1: Background Resources (Hospitals & Ambulances) - Always visible
+  const resourcesLayer = new GraphicsLayer();
+  map.add(resourcesLayer);
+
+  // Layer 2: Active Routes & Selected Incident - Draws ON TOP
+  const routesLayer = new GraphicsLayer();
+  map.add(routesLayer);
+
+  // --- 3. DEFINE SYMBOLS ---
+  const hospitalSymbol = {
+    type: "picture-marker",
+    url: "https://img.icons8.com/?size=100&id=11934&format=png&color=000000",
+    width: "32px",
+    height: "32px",
+  };
+
+  const ambulanceSymbol = {
+    type: "picture-marker",
+    url: "https://img.icons8.com/?size=100&id=14739&format=png&color=000000",
+    width: "32px",
+    height: "32px",
+  };
+
+  // --- 4. FUNCTION TO FETCH REAL DATA ---
+  async function loadFeaturesFromLayer(url, symbol, type) {
+    try {
+      const layer = new FeatureLayer({ url: url });
+      const query = layer.createQuery();
+      query.where = "1=1";
+      query.outFields = ["*"];
+      query.returnGeometry = true;
+      query.outSpatialReference = { wkid: 4326 }; // Lat/Long
+
+      console.log(`⏳ Fetching data from: ${type}...`);
+      const results = await layer.queryFeatures(query);
+      console.log(`✅ Loaded ${results.features.length} ${type}s.`);
+
+      return results.features.map((f) => {
+        f.symbol = symbol;
+        f.popupTemplate = {
+          title: "{name_ar}",
+          content:
+            type === "hospital"
+              ? "🏥 مستشفى | الأسرة المتاحة: {Bed}"
+              : "🚑 محطة إسعاف",
+        };
+        return f;
+      });
+    } catch (error) {
+      console.error(`❌ Error loading ${type}:`, error);
+      return [];
+    }
+  }
+
+  // --- 5. UPDATE HOSPITAL CHART FUNCTION ---
+  function updateHospitalChart(features) {
+    if (!bedsChartInstance) return;
+
+    // 1. Extract Name and Bed Count
+    const data = features.map((f) => ({
+      name: f.attributes.name_ar || f.attributes.name || "مستشفى",
+      beds: f.attributes.Bed || 0,
+    }));
+
+    // 2. Sort by Beds (High to Low) and take top 5
+    data.sort((a, b) => b.beds - a.beds);
+    const top5 = data.slice(0, 5);
+
+    // 3. Update Chart
+    bedsChartInstance.data.labels = top5.map((d) => d.name);
+    bedsChartInstance.data.datasets[0].data = top5.map((d) => d.beds);
+    bedsChartInstance.update();
+  }
+
+  // --- 6. EXECUTE DATA LOADING ---
+  (async () => {
+    // Load Hospitals
+    allHospitalFeatures = await loadFeaturesFromLayer(
+      hospitalLayerUrl,
+      hospitalSymbol,
+      "hospital"
+    );
+
+    // Load Ambulances
+    allAmbulanceFeatures = await loadFeaturesFromLayer(
+      ambulanceLayerUrl,
+      ambulanceSymbol,
+      "ambulance"
+    );
+
+    // ✅ Add all features to the RESOURCES layer (Background)
+    resourcesLayer.addMany([...allHospitalFeatures, ...allAmbulanceFeatures]);
+
+    // ✅ Update Chart after loading data
+    updateHospitalChart(allHospitalFeatures);
+  })();
+
+  // --- 7. ROUTING LOGIC ---
   window.showAccidentOnMap = async function (index) {
     const btn = document.getElementById(`viewBtn${index}`);
     if (btn) {
       btn.disabled = true;
       btn.textContent = "جاري الحساب...";
+    }
+
+    // Check data
+    if (allHospitalFeatures.length === 0 || allAmbulanceFeatures.length === 0) {
+      Swal.fire("انتظر قليلاً", "جارٍ تحميل البيانات...", "info");
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "🗺️ عرض على الخريطة";
+      }
+      return;
     }
 
     const accident = accidents[index];
@@ -363,6 +453,8 @@ require([
     }
 
     const coords = accident.geom.coordinates;
+
+    // ✅ Clear ONLY the route layer (Keep resources visible)
     routesLayer.removeAll();
 
     const incidentPoint = new Point({
@@ -370,14 +462,18 @@ require([
       latitude: coords[1],
     });
 
-    // إضافة علامة الحادث
+    // --- Add Accident Marker ---
     const accidentMarker = new Graphic({
       geometry: incidentPoint,
       symbol: {
         type: "simple-marker",
-        color: [255, 68, 68],
-        size: 20,
+        color: [255, 68, 68], // Red
+        size: 22,
         outline: { color: [255, 255, 255], width: 3 },
+      },
+      attributes: {
+        name: "Incident",
+        numberOfAccidents: accident.numberOfAccidents,
       },
       popupTemplate: {
         title: "🚨 موقع الحادث",
@@ -387,110 +483,73 @@ require([
     routesLayer.add(accidentMarker);
 
     try {
-      // ===== STEP 1: إيجاد أقرب إسعاف =====
-      const ambulanceGraphics = ambulanceGeoJSON.features.map(
-        (f, idx) =>
-          new Graphic({
-            geometry: new Point({
-              longitude: f.geometry.coordinates[0],
-              latitude: f.geometry.coordinates[1],
-            }),
-            attributes: {
-              FacilityID: idx,
-              ...f.properties,
-            },
-          })
-      );
-
+      // Route 1: Ambulance -> Accident
       const cfParams1 = new ClosestFacilityParameters({
-        incidents: new FeatureSet({
-          features: [accidentMarker],
-        }),
-        facilities: new FeatureSet({
-          features: ambulanceGraphics,
-        }),
+        incidents: new FeatureSet({ features: allAmbulanceFeatures }),
+        facilities: new FeatureSet({ features: [accidentMarker] }),
         returnRoutes: true,
-        returnDirections: false,
+        returnDirections: true,
         defaultTargetFacilityCount: 1,
       });
 
-      console.log("🔍 Calculating route to ambulance...");
+      console.log("🔍 Calculating Route 1...");
       const result1 = await closestFacility.solve(
         closestFacilityUrl,
         cfParams1
       );
 
       if (!result1.routes || result1.routes.features.length === 0) {
-        throw new Error("لم يتم العثور على مسار للإسعاف");
+        throw new Error("لم يتم العثور على سيارة إسعاف قريبة");
       }
 
-      const routeToAmbulance = result1.routes.features[0];
-      const ambulanceIndex = routeToAmbulance.attributes.FacilityID;
-      const closestAmbulance = ambulanceGeoJSON.features[ambulanceIndex];
+      const routeFromAmbulance = result1.routes.features[0];
+      const closestAmbulanceIndex = routeFromAmbulance.attributes.IncidentID;
+      const closestAmbulanceGraphic =
+        allAmbulanceFeatures[closestAmbulanceIndex];
+      const closestAmbulanceProperties = closestAmbulanceGraphic.attributes;
 
-      // رسم المسار للإسعاف
-      routeToAmbulance.symbol = {
+      // Style Route 1
+      routeFromAmbulance.symbol = {
         type: "simple-line",
         color: [255, 152, 0],
         width: 5,
       };
-      routesLayer.add(routeToAmbulance);
+      routesLayer.add(routeFromAmbulance);
 
-      const ambulancePoint = new Point({
-        longitude: closestAmbulance.geometry.coordinates[0],
-        latitude: closestAmbulance.geometry.coordinates[1],
-      });
-
-      // تمييز الإسعاف الأقرب
+      // Highlight Ambulance
       const selectedAmbulance = new Graphic({
-        geometry: ambulancePoint,
+        geometry: closestAmbulanceGraphic.geometry,
         symbol: {
           type: "simple-marker",
           color: [76, 175, 80],
-          size: 18,
+          size: 20,
           outline: { color: [255, 255, 255], width: 3 },
         },
+        popupTemplate: closestAmbulanceGraphic.popupTemplate,
       });
       routesLayer.add(selectedAmbulance);
 
-      // ===== STEP 2: إيجاد أقرب مستشفى بها أسرة كافية =====
-      const availableHospitals = hospitalGeoJSON.features.filter(
-        (h) => h.properties.beds > accident.numberOfAccidents
+      // Route 2: Accident -> Hospital
+      const requiredBeds = accident.numberOfAccidents || 1;
+      const availableHospitalsGraphics = allHospitalFeatures.filter(
+        (h) => (h.attributes.Bed || 0) >= requiredBeds
       );
 
-      if (availableHospitals.length === 0) {
+      if (availableHospitalsGraphics.length === 0) {
         throw new Error(
-          "لا توجد مستشفيات بها أسرة كافية للمصابين في الوقت الحالي"
+          `لا توجد مستشفيات بها أسرة كافية (${requiredBeds}) للمصابين.`
         );
       }
 
-      const hospitalGraphics = availableHospitals.map(
-        (f, idx) =>
-          new Graphic({
-            geometry: new Point({
-              longitude: f.geometry.coordinates[0],
-              latitude: f.geometry.coordinates[1],
-            }),
-            attributes: {
-              FacilityID: hospitalGeoJSON.features.indexOf(f),
-              ...f.properties,
-            },
-          })
-      );
-
       const cfParams2 = new ClosestFacilityParameters({
-        incidents: new FeatureSet({
-          features: [accidentMarker],
-        }),
-        facilities: new FeatureSet({
-          features: hospitalGraphics,
-        }),
+        incidents: new FeatureSet({ features: [accidentMarker] }),
+        facilities: new FeatureSet({ features: availableHospitalsGraphics }),
         returnRoutes: true,
-        returnDirections: false,
+        returnDirections: true,
         defaultTargetFacilityCount: 1,
       });
 
-      console.log("🔍 Calculating route to hospital...");
+      console.log("🔍 Calculating Route 2...");
       const result2 = await closestFacility.solve(
         closestFacilityUrl,
         cfParams2
@@ -501,10 +560,12 @@ require([
       }
 
       const routeToHospital = result2.routes.features[0];
-      const hospitalIndex = routeToHospital.attributes.FacilityID;
-      const closestHospital = hospitalGeoJSON.features[hospitalIndex];
+      const closestHospitalIndex = routeToHospital.attributes.FacilityID;
+      const closestHospitalGraphic =
+        availableHospitalsGraphics[closestHospitalIndex];
+      const closestHospitalProperties = closestHospitalGraphic.attributes;
 
-      // رسم المسار للمستشفى
+      // Style Route 2
       routeToHospital.symbol = {
         type: "simple-line",
         color: [33, 150, 243],
@@ -512,80 +573,85 @@ require([
       };
       routesLayer.add(routeToHospital);
 
-      const hospitalPoint = new Point({
-        longitude: closestHospital.geometry.coordinates[0],
-        latitude: closestHospital.geometry.coordinates[1],
-      });
-
-      // تمييز المستشفى الأقرب
+      // Highlight Hospital
       const selectedHospital = new Graphic({
-        geometry: hospitalPoint,
+        geometry: closestHospitalGraphic.geometry,
         symbol: {
           type: "simple-marker",
           color: [33, 150, 243],
-          size: 18,
+          size: 20,
           outline: { color: [255, 255, 255], width: 3 },
         },
+        popupTemplate: closestHospitalGraphic.popupTemplate,
       });
       routesLayer.add(selectedHospital);
 
-      // التحرك لعرض كل العناصر
-      view.goTo(
+      // Zoom to Scene
+      window.currentView.goTo(
         {
           target: [
-            accidentMarker,
             selectedAmbulance,
+            accidentMarker,
             selectedHospital,
-            routeToAmbulance,
+            routeFromAmbulance,
             routeToHospital,
           ],
-          zoom: 12,
+          zoom: 13,
         },
         { duration: 1500 }
       );
 
-      // عرض النتائج
+      // Display Info
       const distance1 = (
-        routeToAmbulance.attributes.Total_Kilometers || 0
+        routeFromAmbulance.attributes.Total_Kilometers || 0
       ).toFixed(2);
-      const time1Calculated = ((parseFloat(distance1) / 70) * 60).toFixed(1);
+      const time1 = ((parseFloat(distance1) / 60) * 60).toFixed(1);
       const distance2 = (
         routeToHospital.attributes.Total_Kilometers || 0
       ).toFixed(2);
-      const time2Calculated = ((parseFloat(distance2) / 70) * 60).toFixed(1);
+      const time2 = ((parseFloat(distance2) / 60) * 60).toFixed(1);
+      const totalDistance = (
+        parseFloat(distance1) + parseFloat(distance2)
+      ).toFixed(2);
+      const totalTime = (parseFloat(time1) + parseFloat(time2)).toFixed(1);
 
       Swal.fire({
-        title: "✅ تم حساب المسار بنجاح",
+        title: "✅ تم تعيين مسار الطوارئ",
         html: `
-    <div style="text-align: center; direction: ltr; padding: 15px;">
-      <h4 style="color: #FF9800; margin-bottom: 10px;">🚑 المسار للإسعاف</h4>
-      <p><strong>${closestAmbulance.properties.name_ar}</strong></p>
-      <p>المسافة: <strong>${distance1} كم</strong> | الوقت: <strong>${time1Calculated} دقيقة</strong></p>
+    <div style="text-align: right; direction: rtl; padding: 15px;">
+      <div style="background: #fff3e0; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+        <h4 style="color: #e65100; margin:0;">🚑 1. تحرك الإسعاف</h4>
+        <div style="font-size: 0.9em; margin-top: 5px;">
+           من: <strong>${
+             closestAmbulanceProperties.name_ar || "نقطة تمركز"
+           }</strong><br>
+           المسافة: <strong>${distance1} كم</strong> | الوقت: <strong>${time1} دقيقة</strong>
+        </div>
+      </div>
+      <div style="background: #e3f2fd; padding: 10px; border-radius: 8px;">
+        <h4 style="color: #1565c0; margin:0;">🏥 2. النقل للمستشفى</h4>
+        <div style="font-size: 0.9em; margin-top: 5px;">
+           إلى: <strong>${
+             closestHospitalProperties.name_ar || "مستشفى"
+           }</strong><br>
+           الأسرة المتاحة: <strong>${closestHospitalProperties.Bed}</strong><br>
+           المسافة: <strong>${distance2} كم</strong> | الوقت: <strong>${time2} دقيقة</strong>
+        </div>
+      </div>
       <hr style="margin: 15px 0;">
-      <h4 style="color: #2196F3; margin-bottom: 10px;">🏥 المسار للمستشفى</h4>
-      <p><strong>${closestHospital.properties.name_ar}</strong></p>
-      <p>المسافة: <strong>${distance2} كم</strong> | الوقت: <strong>${time2Calculated} دقيقة</strong></p>
-      <p style="font-size: 14px; color: #666;">الأسرة المتاحة: <strong>${
-        closestHospital.properties.beds
-      }</strong></p>
-      <hr style="margin: 15px 0;">
-      <p style="font-size: 16px;"><strong>📍 إجمالي المسافة:</strong> ${(
-        parseFloat(distance1) + parseFloat(distance2)
-      ).toFixed(2)} كم</p>
-      <p style="font-size: 16px;"><strong>⏱️ إجمالي الوقت:</strong> ${(
-        parseFloat(time1Calculated) + parseFloat(time2Calculated)
-      ).toFixed(1)} دقيقة</p>
+      <p style="font-size: 16px;"><strong>📍 إجمالي المسافة:</strong> ${totalDistance} كم</p>
+      <p style="font-size: 16px;"><strong>⏱️ إجمالي الوقت التقديري:</strong> ${totalTime} دقيقة</p>
     </div>
   `,
-
         icon: "success",
         confirmButtonText: "حسناً",
+        position: "top-start", // ← this moves it to the left (start) at the top
       });
     } catch (error) {
-      console.error("❌ Error:", error);
+      console.error("❌ Routing Error:", error);
       Swal.fire({
-        title: "خطأ",
-        text: error.message || "حدث خطأ أثناء حساب المسار",
+        title: "خطأ في التحليل",
+        text: error.message || "حدث خطأ أثناء حساب المسار.",
         icon: "error",
       });
     } finally {

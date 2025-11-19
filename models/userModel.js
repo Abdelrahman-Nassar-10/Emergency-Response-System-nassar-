@@ -1,5 +1,6 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../dataBase/dataBaseConnection.js");
+const { image } = require("../utils/cloudinaryConfig.js");
 
 const Users = sequelize.define(
   "Users",
@@ -46,12 +47,10 @@ const Users = sequelize.define(
         },
       },
     },
-    // ✅ إضافة حقل نسبة التطابق من AI
-    idSimilarity: {
-      type: DataTypes.FLOAT,
-      allowNull: true,
-      defaultValue: 0,
-      field: "id_similarity",
+
+    imageUrl:{
+      type:DataTypes.STRING,
+
     },
     isVerified: {
       type: DataTypes.BOOLEAN,
@@ -66,7 +65,7 @@ const Users = sequelize.define(
   {
     tableName: "users",
     timestamps: true, // ✅ يفضل تفعيلها لتتبع createdAt و updatedAt
-    underscored: true, // ✅ يحول الأسماء إلى snake_case في قاعدة البيانات
+    // underscored: true, // ✅ يحول الأسماء إلى snake_case في قاعدة البيانات
   }
 );
 

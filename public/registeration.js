@@ -143,7 +143,8 @@
           } else {
             alert("✅ " + (data.message || "تم التسجيل بنجاح!"));
             setTimeout(() => {
-              window.location.href = "/public/user.html";
+              window.location.href =
+                "file:///C:/Users/ahmed/OneDrive%20-%20Faculty%20Of%20Computer%20and%20information%20(Suez%20Canal%20University%20-%20Ismailia%20Branch)/Desktop/final-project/public/user.html";
             }, 2000);
           }
 

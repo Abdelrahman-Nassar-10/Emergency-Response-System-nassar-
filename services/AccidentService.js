@@ -8,36 +8,36 @@ const Report = require("../models/reportModel");
  */
 const createReport = async (req, res) => {
   try {
-    console.log("📝 Creating new report...");
-    console.log("📦 Request body:", req.body);
+    const { geom, numberOfAccidents, description, pictureURL, userId } =
+      req.body;
 
-    // Validate required fields
-    if (!req.body.geom || !req.body.numberOfAccidents) {
+    if (!geom || !geom.coordinates || !numberOfAccidents) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields: geom or numberOfAccidents",
+        message: "geom and numberOfAccidents required",
       });
     }
+    const currentDate = new Date();
 
-    // Create report
     const report = await Report.create({
-      geom: req.body.geom,
-      numberOfAccidents: req.body.numberOfAccidents,
-      description: req.body.description || "",
-      // pictureURL: req.body.pictureURL || [],
-      userId: req.body.userId || 1,
-      timestamp: req.body.timestamp || new Date().toISOString(),
+      geom: {
+        ...geom,
+        crs: { type: "name", properties: { name: "EPSG:4326" } },
+      },
+      numberOfAccidents,
+      description: description || "",
+      pictureURL: pictureURL || null,
+      userId :  req.user.id,
+      reportTime: currentDate, // ← التاريخ مباشرة
     });
-    await report.save()
-    console.log("✅ Report created successfully - ID:", report.id);
 
     return res.status(201).json({
       success: true,
       message: "Report created successfully",
-      report: report,
+      report, // ← هذا مهم للـ frontend
     });
   } catch (error) {
-    console.error("❌ Error creating report:", error.message);
+    console.error("Error creating report:", error);
     return res.status(500).json({
       success: false,
       message: "Error creating report",

@@ -1,4 +1,6 @@
 const jwt = require("jsonwebtoken");
+const express = require("express");
+require("dotenv").config();
 
 const signToken = async (payload) => {
   const token = await jwt.sign(payload, process.env.JWT_SECRET, {

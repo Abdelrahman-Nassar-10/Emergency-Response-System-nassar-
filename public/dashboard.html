@@ -4,96 +4,84 @@
     <meta charset="UTF-8" />
     <title>🚑 لوحة متابعة البلاغات</title>
 
-    <!-- ✅ ArcGIS -->
-    <link
-      rel="stylesheet"
-      href="https://js.arcgis.com/4.30/esri/themes/light/main.css"
-    />
+    <link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css" />
 
-    <!-- ✅ SweetAlert -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <!-- ✅ Socket.IO -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <link rel="stylesheet" href="./dashboard.css" />
   </head>
 
   <body>
-    <div class="main-container">
-      <!-- Sidebar -->
-      <div class="sidebar">
-        <header>
-          <div class="header-content">
-            <span class="header-icon">🚑</span>
-            <h1 class="header-title">لوحة التحكم</h1>
-            <p class="header-subtitle">نظام إدارة البلاغات الطارئة</p>
+    <div class="main-layout">
+      
+      <div class="top-section">
+        
+        <div class="sidebar">
+          <div class="stats-panel">
+            <div class="stat-item">
+              <div class="stat-value" id="totalReports">0</div>
+              <div class="stat-label">إجمالي البلاغات</div>
+            </div>
           </div>
-        </header>
 
-        <!-- Statistics Panel -->
-        <div class="stats-panel">
-          <div class="stat-item">
-            <div class="stat-value" id="totalReports">0</div>
-            <div class="stat-label">إجمالي البلاغات</div>
+          <div class="search-container">
+            <input
+              type="text"
+              class="search-box"
+              placeholder="🔍 ابحث برقم البلاغ..."
+              id="searchBox"
+            />
+            <div class="filter-buttons">
+              <button class="filter-btn active" data-filter="all">الكل</button>
+              <button class="filter-btn" data-filter="high">حالات حرجة</button>
+              <button class="filter-btn" data-filter="recent">الأحدث</button>
+            </div>
           </div>
-        </div>
 
-        <!-- Search and Filter -->
-        <div class="search-container">
-          <input
-            type="text"
-            class="search-box"
-            placeholder="🔍 ابحث عن بلاغ برقم البلاغ..."
-            id="searchBox"
-          />
-          <div class="filter-buttons">
-            <button class="filter-btn active" data-filter="all">الكل</button>
-            <button class="filter-btn" data-filter="high">حالات حرجة</button>
-            <button class="filter-btn" data-filter="recent">الأحدث</button>
+          <div class="accidents-container" id="accidentsList">
+            <div class="loading">جاري تحميل البلاغات...</div>
           </div>
         </div>
 
-        <!-- Accidents List -->
-        <div class="accidents-container" id="accidentsList">
-          <div class="loading">جاري تحميل البلاغات...</div>
-        </div>
-      </div>
+        <div class="map-container">
+          <div id="map"></div>
+          
+          <div class="route-info" id="routeInfo"></div>
 
-      <!-- Map Container -->
-      <div class="map-container">
-        <div id="map"></div>
-
-        <!-- Route Info Panel -->
-        <div class="route-info" id="routeInfo"></div>
-
-        <!-- Route Legend -->
-        <div class="route-legend" id="routeLegend">
-          <div class="legend-item">
-            <div
-              class="legend-color"
-              style="
-                background: linear-gradient(90deg, #ff9800 0%, #ff6b00 100%);
-              "
-            ></div>
-            <span>🚑 المسار من الإسعاف إلى الحادث</span>
-          </div>
-          <div class="legend-item">
-            <div
-              class="legend-color"
-              style="
-                background: linear-gradient(90deg, #2196f3 0%, #0066cc 100%);
-              "
-            ></div>
-            <span>🏥 المسار من الحادث إلى المستشفى</span>
+          <div class="route-legend" id="routeLegend">
+            <div class="legend-item">
+              <div class="legend-color" style="background: linear-gradient(90deg, #ff9800 0%, #ff6b00 100%);"></div>
+              <span>🚑 مسار الإسعاف</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: linear-gradient(90deg, #2196f3 0%, #0066cc 100%);"></div>
+              <span>🏥 مسار المستشفى</span>
+            </div>
           </div>
         </div>
       </div>
+
+      <footer class="footer-bar">
+        <div class="footer-title">📊 التحليلات المباشرة</div>
+        
+        <div class="charts-wrapper">
+          <div class="chart-card">
+            <canvas id="hospitalBedsChart"></canvas>
+          </div>
+          
+          <div class="chart-card">
+            <canvas id="accidentSeverityChart"></canvas>
+          </div>
+        </div>
+      </footer>
+
     </div>
 
-    <!-- ✅ ArcGIS Script -->
     <script src="https://js.arcgis.com/4.30/"></script>
-
-    <!-- ✅ Dashboard Script -->
     <script src="./dashboard.js"></script>
   </body>
 </html>

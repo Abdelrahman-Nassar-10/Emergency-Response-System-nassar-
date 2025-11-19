@@ -14,7 +14,7 @@ function initSocket(server) {
 
     // استقبال بلاغ جديد من المستخدم
     socket.on("newAccident", (data) => {
-      console.log("🚨 New accident received:", data);
+      // console.log("🚨 New accident received:", data);
       // إرسال البلاغ إلى جميع الـ dashboards
       io.emit("newAccident", data);
     });
